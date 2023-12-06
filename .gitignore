@@ -1,0 +1,5 @@
+# author: jiangxiaoyu
+# date : Tue Nov 24 2022:16:10
+# add some files should be ignore by git
+
+./build

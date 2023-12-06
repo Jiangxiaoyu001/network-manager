@@ -1,0 +1,1 @@
+/usr/bin/c++ -std=c++0x -std=c++0x  -g -ftest-coverage -fprofile-arcs -Wno-deprecated -g -ftest-coverage -lpthread -fprofile-arcs -Wno-deprecated -O3 -DNDEBUG -rdynamic CMakeFiles/ntmg.dir/ntmg_autogen/mocs_compilation.cpp.o CMakeFiles/ntmg.dir/socket-manage.cpp.o CMakeFiles/ntmg.dir/test.cpp.o -o ntmg  -lpthread 

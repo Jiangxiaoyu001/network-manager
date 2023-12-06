@@ -1,0 +1,10 @@
+/home/jiangxiaoyu/jiangxiaoyu/personal_v/network-platfrom/build/CMakeFiles/package.dir
+/home/jiangxiaoyu/jiangxiaoyu/personal_v/network-platfrom/build/CMakeFiles/package_source.dir
+/home/jiangxiaoyu/jiangxiaoyu/personal_v/network-platfrom/build/CMakeFiles/edit_cache.dir
+/home/jiangxiaoyu/jiangxiaoyu/personal_v/network-platfrom/build/CMakeFiles/rebuild_cache.dir
+/home/jiangxiaoyu/jiangxiaoyu/personal_v/network-platfrom/build/src/CMakeFiles/ntmg.dir
+/home/jiangxiaoyu/jiangxiaoyu/personal_v/network-platfrom/build/src/CMakeFiles/package.dir
+/home/jiangxiaoyu/jiangxiaoyu/personal_v/network-platfrom/build/src/CMakeFiles/package_source.dir
+/home/jiangxiaoyu/jiangxiaoyu/personal_v/network-platfrom/build/src/CMakeFiles/edit_cache.dir
+/home/jiangxiaoyu/jiangxiaoyu/personal_v/network-platfrom/build/src/CMakeFiles/rebuild_cache.dir
+/home/jiangxiaoyu/jiangxiaoyu/personal_v/network-platfrom/build/src/CMakeFiles/ntmg_autogen.dir
