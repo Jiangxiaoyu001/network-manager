@@ -120,12 +120,14 @@ typedef struct _ip_hdr {
 #pragma pack() /* cancel */
 
 /* IP-header optional */
+#pragma pack(1) /* cancel */
 typedef struct _ip_option {
     unsigned char code; /* option type */
     unsigned char len; /* length of options */
     unsigned char ptr; /* offset into options */
     unsigned int  addr[9]; /* list of IP address */
 } IpOptHeader;
+#pragma pack() /* cancel */
 
 /* ICMP  
 ----------- 32 bits -------------
@@ -146,7 +148,7 @@ typedef struct _icmp_hdr {
     unsigned short checksum;
     unsigned short identifier;
     unsigned short seqNum;
-    unsigned int   timestamp;
+//    unsigned long long   timestamp;
 } IcmpHeader;
 #pragma pack()
 
@@ -254,7 +256,7 @@ private:
 
 	/* sock packet parse*/
 	int rarp_packet_parse(const char *msg);
-	int icmp_packet_parse(const char *msg);
+	int icmp_packet_parse(const char *msg, int size);
 	int arp_packet_parse(const char *msg);
 	int ip_packet_parse(const char * msg);
 	void ip_options_parse(const char *msg);
@@ -423,6 +425,7 @@ int sockManage::ip_packet_parse(const char *msg)
 
 	/* calculation ip header size */
 	unsigned int ipHeader_size = iphdr->header_len * 4;
+	unsigned int ipDataSize = ntohs(iphdr->total_len) - iphdr->header_len * 4;
 
 	//memcpy(iphdr, &msg[p_headerLen->macHeader_len], ipHeader_size);
 	memcpy(&src_adr, &iphdr->src_addr, p_headerLen->ipSrcAdrLen);
@@ -431,6 +434,7 @@ int sockManage::ip_packet_parse(const char *msg)
 	cout << "\t\tmacHeader_len:" << dec << p_headerLen->macHeader_len << endl;
 	cout << "\t\tipHeader_len:"  << dec << (iphdr->header_len * 4) << endl;
 
+	printf("IP PROTOCOL:( \n");
 	printf("version:%d\n", iphdr->version);
 	printf("header_len:%d\n", iphdr->header_len * 4);
 	printf("server_type:%d\n", iphdr->server_type);
@@ -441,7 +445,7 @@ int sockManage::ip_packet_parse(const char *msg)
 	cout << "src_ip:" << inet_ntoa(src_adr) << endl;
 	cout << "des_ip:" << inet_ntoa(des_adr) << endl;
 	
-	printf("dataLen:%d\n", ntohs(iphdr->total_len) - iphdr->header_len * 4);
+	printf("dataLen:%d )\n", ipDataSize);
 
 	/* Ip options decode */
 	if (iphdr->header_len > 5)
@@ -458,7 +462,7 @@ int sockManage::ip_packet_parse(const char *msg)
 	switch (static_cast<unsigned short>(iphdr->protocol)) {
 	case IPPROTO_ICMP:
        	printf("ICMP protocol\n");
-		icmp_packet_parse(msg + p_headerLen->ipHeader_len);
+		icmp_packet_parse(msg + p_headerLen->ipHeader_len, ipDataSize);
         break;
     case IPPROTO_IGMP:
         printf("IGMP protocol\n");
@@ -634,10 +638,12 @@ string sockManage::icmp_timestamp_transition(unsigned int timestamp)
  * @size: the icmp data packet length
  * @icmp_data: icmp protocol packet both header and data
  *
- * Calc icmp's checksum
+ * Calc icmp's checksum:
  * if we divide the ICMP data packet is 16 bit words and sum each of them up
- * then hihg 16bit add low 16bit to sum get a value, 
- * the value add low 16bit of value to sum
+ * then hihg 16bit add low 16bit to sum get a value,  
+ * If the total length is odd, 
+ * the last byte is padded with one octet of zeros for computing the checksum.
+ * Then hihg 16bit add low 16bit to sum get a value,
  * finally do a one's complementing 
  * then the value generated out of this operation would be the checksum.
  * 
@@ -645,21 +651,15 @@ string sockManage::icmp_timestamp_transition(unsigned int timestamp)
  */
 unsigned short sockManage::icmp_calc_checksum(char * icmp_packet, int size)
 {
-/*
-	cout << "timestamp[0]:0x" << hex << icmp_packet[8] << endl;
-	cout << "timestamp[1]:0x" << hex << icmp_packet[9] << endl;
-	cout << "timestamp[2]:0x" << hex << icmp_packet[10] << endl;
-	cout << "timestamp[3]:0x" << hex << icmp_packet[11] << endl;
-*/
 	unsigned short * sum = (unsigned short *)icmp_packet;
 	unsigned int checksum = 0;
-
 	while (size > 1) {
-		checksum += *sum++;
+		checksum += ntohs(*sum++);
 		size -= sizeof(unsigned short);
 	}
 	if (size) {
-		checksum += (unsigned char)*sum;
+		*sum = *((unsigned char*)sum);
+		checksum += ((*sum << 8) & 0xFF00);
 	}
 
 	checksum = (checksum >> 16) + (checksum & 0xffff);
@@ -672,82 +672,32 @@ unsigned short sockManage::icmp_calc_checksum(char * icmp_packet, int size)
 /**        
  * icmp_packet_parse:
  * @msg: ICMP protocol packet
+ * @size: ICMP packet size
  * 
  * Already locate to ICMP protocol packet from original network protocol packet
- * and decode ICMP field
+ * and decode ICMP header
  *
  */ 
-int sockManage::icmp_packet_parse(const char *msg)
+int sockManage::icmp_packet_parse(const char *msg, int size)
 {
 	IcmpHeader * Icmphdr = (IcmpHeader *)msg;
 
-	unsigned int icmp_packet_len = 
-					this->recvByte -
-					(p_headerLen->macHeader_len + 
-					p_headerLen->ipHeader_len);
 
-	/* not host icmp replay echo */
-	if ((Icmphdr->type | Icmphdr->code) != 0) {
-		Icmphdr->checksum   = ntohs(Icmphdr->checksum);
-		Icmphdr->identifier = ntohs(Icmphdr->identifier);
-		Icmphdr->seqNum     = ntohs(Icmphdr->seqNum);
-		//Icmphdr->timestamp  = ntohl(Icmphdr->timestamp);
-	}
-
-	cout << "\t\trecvByte:" << this->recvByte << endl;
-	//cout << "\t\ticmp_packet_len:" << icmp_packet_len << endl;
-	// cout << "\t\ticmp_header_len:" << p_headerLen->icmpHeaderLen << endl;
-	// cout << "\t\ticmp_data_len:" << icmp_data_len << endl;
-
+	cout << "\t\tsize:" << size << endl;
 	printf("\t\ttype:0x%02x\n", Icmphdr->type);
 	printf("\t\tcode:0x%02x\n", Icmphdr->code);
-	printf("\t\tchecksum:0x%02x\n", (Icmphdr->checksum));
-	printf("\t\tidentifiler:0x%02x\n", (Icmphdr->identifier));
-	printf("\t\tseqNum:0x%02x\n", (Icmphdr->seqNum));
-	printf("\t\ttimestamp:0x%02x\n", (Icmphdr->timestamp));
+	printf("\t\tchecksum:0x%02x\n", ntohs(Icmphdr->checksum));
+	printf("\t\tidentifiler:0x%02x\n", ntohs(Icmphdr->identifier));
+	printf("\t\tseqNum:0x%02x\n", ntohs(Icmphdr->seqNum));
 
 	
-/*
-	cout << "\t\ttype:"    << hex << p_icmpHeader->type << endl;
-	cout << "\t\tcode:"    << hex << p_icmpHeader->code << endl;
-	cout << "\t\tchecksum:" << hex << p_icmpHeader->checksum << endl;
-	cout << "\t\tidentifier:"   << hex << p_icmpHeader->identifier << endl;
-	cout << "\t\tseqNum:"   << hex << p_icmpHeader->seqNum << endl;
-	cout << "\t\ttimestamp:"   << hex << p_icmpHeader->timestamp << endl;
-*/
-	
-
-	cout << "\t\ttimestamp:"
-		 << icmp_timestamp_transition(Icmphdr->timestamp) << endl;
-
-	
-	char icmp_packet[icmp_packet_len] = {0};
-	icmp_packet[0] = Icmphdr->type;
-	icmp_packet[1] = Icmphdr->code;
-
-	/* bigEndian or litterEndian change */
-	icmp_packet[2] = (Icmphdr->checksum >> 8) & 0x00FF;
-	icmp_packet[3] = Icmphdr->checksum & 0x00FF;
-
-	icmp_packet[4] = (Icmphdr->identifier >> 8) & 0x00FF;
-	icmp_packet[5] = Icmphdr->identifier & 0x00FF;
-
-	icmp_packet[6] = (Icmphdr->seqNum >> 8) & 0x00FF;
-	icmp_packet[7] = Icmphdr->seqNum & 0x00FF;
-
-	icmp_packet[8]  = (Icmphdr->timestamp >> 24) & 0x000000FF;
-	icmp_packet[9]  = (Icmphdr->timestamp >> 16) & 0x000000FF;
-	icmp_packet[10] = (Icmphdr->timestamp >> 8)  & 0x000000FF;
-	icmp_packet[11] = Icmphdr->timestamp & 0x000000FF;
-
-	//memcpy(&icmp_packet[icmp_header_len], &msg[icmp_header_len], icmp_data_len);
-
-	Icmphdr->checksum = 0;
-	printf("checksum:%02x\n", icmp_calc_checksum((char *)Icmphdr, icmp_packet_len));
-	for (int i = 0; i < icmp_packet_len; i++) {
-		printf("0x%02x ", (unsigned char)icmp_packet[i]);
+	for (int i = 0; i < size; i++) {
+		printf("0x%02x ", ((unsigned char*)Icmphdr)[i]);
 	}
 	printf("\n");
+
+	Icmphdr->checksum = 0;
+	printf("checksum:%02x\n", icmp_calc_checksum((char *)Icmphdr, size));
 
 	return 0;
 }

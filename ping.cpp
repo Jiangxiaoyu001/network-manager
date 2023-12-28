@@ -234,8 +234,7 @@ void icmp_request_packet(char * icmp_packet, int size)
 {
 
     IcmpHeader * Icmphdr = (IcmpHeader *)icmp_packet;
-    //memset(p_icmpHeader, 0, p_headerLen->icmpHeaderLen);
-
+ 
     Icmphdr->type       = ICMP_ECHO;
     Icmphdr->code       = ICMP_ECHOREPLY;
     Icmphdr->identifier = getpid();
@@ -255,20 +254,23 @@ void icmp_request_packet(char * icmp_packet, int size)
     /* calc checksum */
     Icmphdr->checksum = icmp_calc_checksum((unsigned short *)Icmphdr, size);
 
+    /* host byte order is converted to network byte order */
+    htons(Icmphdr->identifier);
+    htons(Icmphdr->checksum);
+    htons(Icmphdr->seqNum);
+
     return;
 }
 
 /**                                                            
  * icmp_calc_checksum:
+ * @size: the icmp packet length
  * @icmp_packet: icmp protocol packet both header and data
- * @size: the icmp data packet length
- * 
- * Calc icmp's checksum:
+ *
+ * Calculates the 16-bit icmp's checksum
  * if we divide the ICMP data packet is 16 bit words and sum each of them up
- * then hihg 16bit add low 16bit to sum get a value,  
- * If the total length is odd, 
- * the last byte is padded with one octet of zeros for computing the checksum.
- * Then hihg 16bit add low 16bit to sum get a value,
+ * then hihg 16bit add low 16bit to sum get a value, 
+ * the value add low 16bit of value to sum
  * finally do a one's complementing 
  * then the value generated out of this operation would be the checksum.
  * 
@@ -507,8 +509,6 @@ void validate_args(int argc, char **argv)
             fprintf(stderr, "send timeout: %s\n", strerror(errno));
         } else 
             ip_packet_parse(recvBuff, recvByte);
-        
-        //usleep(500 * 1000); /* sleep 500ms */
     }
     
     return 0;
